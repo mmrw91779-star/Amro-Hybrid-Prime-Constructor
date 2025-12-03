@@ -1,104 +1,204 @@
-🔥 MU-ENGINE | Prime Vector Acceleration System
-
-A hybrid high-speed prime filtration and verification engine based on digit-vector propagation.
-
-
----
-
-📌 Algorithm Description
-
-The MU-engine operates on iterative digit-vector propagation instead of classical division.
-It uses apply_add() to incrementally simulate multiplication growth using only carry-based digit shifting.
-
-No modulus, no division — the number evolves through layered linear digit expansion.
-
+# MU System – Modularity Unit Prime Constructor
+### Version 1.5 — Core Specification  
+Part of the A-HPC (Amro Hybrid Prime Constructor) Architecture
 
 ---
 
-Core Structure
+## 1. Introduction
 
-Component	Function
+The **MU System (Modularity Unit)** represents the classical layer of the  
+Amro-Prime framework.  
+It provides a deterministic way to reduce a large number *N* into a smaller number  
+*N′* using a structural rule of the form:
 
-apply_add()	Expands integer vector dynamically using carry propagation
-MU_test()	Multi-stage primality evaluation using MU-units 1→13
+```
+N′ = a ± k·b
+```
 
+Where:  
+- **a** = the number after removing the last digit  
+- **b** = the last digit  
+- **k** = the constructor coefficient  
+- The sign (±) is determined by the modular relation of `10k mod P`
 
-
----
-
-Why It's Important
-
-Classical Primality	MU-Engine
-
-Needs division	No division used
-Slow past 10^10	Scales into millions digits
-Trillion operations	Millions instead
-
-
-Performance example:
-
-n = 500-bit prime → classical ≈ 13 trillion ops  
-MU-engine same case ≈ 13 million ops only
-
-A reduction factor of x1000+.
-
+The MU system was the original engine for filtering candidates before the newer  
+O(L) linear sieve was introduced.
 
 ---
 
-Example Execution
+## 2. Mathematical Foundation of MU
 
-78676 → passes MU-unit stage 1
-78676 → fails at unit 2 ⇒ composite
+The core idea relies on finding a value **k** such that:
 
-10007 → reaches late phase → near-prime behavior
+```
+10k ≡ ±1 (mod P)
+```
 
+Where **P** is a prime (called “Constructor Prime”).
 
----
+Two possible modes arise:
 
-Source Code (no modifications):
+### 2.1 Add Mode
+If:
 
-#include <stdio.h>  
-#include <stdlib.h>  
-#include <string.h>  
-#include <time.h>  
-  
-// ======================================================  
-// 🔥 MU-ENGINE CORE FUNCTIONS  
-// ======================================================  
-  
-void apply_add(char **num, int k, int lastDigit) {  
-    int carry = k * lastDigit;  
-    int len = strlen(*num);  
-    int i = len - 1;  
-  
-    while(i >= 0 && carry > 0) {  
-        int d = (*num)[i]-'0' + carry;  
-        (*num)[i] = (d % 10)+'0';  
-        carry = d / 10;  
-        i--;  
-    }  
-  
-    if(carry > 0) {  
-        int extra = 16;  
-        *num = realloc(*num, len + extra + 1);  
-  
-        memmove(*num+1, *num, len+1);  
-        (*num)[0] = (carry % 10)+'0';  
-        carry /= 10;  
-  
-        while(carry > 0) {  
-            memmove(*num+1, *num, strlen(*num)+1);  
-            (*num)[0] = (carry%10)+'0';  
-            carry /= 10;  
-        }  
-    }  
-}
+```
+10k ≡ -1 (mod P)
+```
 
+Rule becomes:
+
+```
+N′ = a + k·b
+```
+
+### 2.2 Subtract Mode
+If:
+
+```
+10k ≡ +1 (mod P)
+```
+
+Rule becomes:
+
+```
+N′ = a − k·b
+```
+
+Repeating the transformation shrinks *N* until it reaches a small integer,  
+allowing primality rejection based on divisibility by *P*.
 
 ---
 
-📄 Project License: MIT
+## 3. Example (P = 7)
 
-Free to use, modify, publish — credit required.
+Solve:
 
+```
+10k ≡ -1 (mod 7)
+```
 
+We have:
+
+```
+20 = 21 - 1
+```
+
+Thus:
+
+```
+10 × 2 ≡ -1 (mod 7)
+k = 2
+Mode = Add Mode
+Rule = N′ = a + 2·b
+```
+
+### Example for N = 128
+
+```
+128 → a=12 , b=8 → 12 + 2×8 = 28
+ 28 → a=2  , b=8 → 2 + 2×8 = 18
+ 18 → a=1  , b=8 → 1 + 16 = 17
+ 17 → a=1  , b=7 → 1 + 14 = 15
+```
+
+Since **15 is divisible by 3 and 5**,  
+128 is composite under MU(7).
+
+---
+
+## 4. Why MU Works
+
+MU eliminates the need for classical division by *P*.  
+Instead, the number is collapsed digit by digit using small integer arithmetic.
+
+This avoids large-number multiplication, but:
+
+- MU is **not O(L)**
+- And becomes slow for very large input
+
+Therefore, MU was replaced by the **O(L) linear sieve** in A-HPC V3.
+
+---
+
+## 5. MU Algorithm (Pseudo-Code)
+
+```
+function MU_Test(number, P, k, mode):
+
+    while length(number) > 2:
+        a = number / 10
+        b = last_digit(number)
+
+        if mode == ADD:
+            number = a + k*b
+        else:
+            number = a - k*b
+
+        remove_leading_zeros(number)
+
+        if number < 0:
+            return NEGATIVE_RESULT
+
+    if number % P == 0:
+        return COMPOSITE
+
+    return CANDIDATE
+```
+
+---
+
+## 6. Problems in Classical MU (Why It Was Replaced)
+
+The MU system has structural issues:
+
+### 6.1 ❌ Negative results  
+Subtract-mode may produce negative numbers during contraction.
+
+### 6.2 ❌ Zero accumulation  
+Removing leading zeros requires extra cleanup.
+
+### 6.3 ❌ Non-linear cost  
+String rebuilding and memory contraction → can reach **O(L²)**.
+
+### 6.4 ❌ Limited analytical spectrum  
+Some primes generate weak constructor dynamics.
+
+Because of these issues MU was deprecated and replaced by:
+
+### ✔ A-HPC V3  
+Single-Pass Linear Modular Sieve  
+**O(L)** deterministic complexity.
+
+---
+
+## 7. MU Inside A-HPC (Legacy Layer)
+
+MU is not removed; it is preserved as:
+
+```
+Layer 0 — Historical Constructor Structure
+```
+
+It provides:
+
+- Conceptual foundation of constructor rules  
+- The origin of k-coefficients  
+- Validation of the modern sieve's prime selection
+
+---
+
+## 8. Files Included
+
+```
+MU-README.md       ← (this file)
+mu_core.c          ← classical MU implementation
+mu_rules.json      ← k-constructors table
+mu_examples.txt    ← contraction examples
+```
+
+---
+
+## 9. License
+
+This component is part of the A-HPC project  
+and released under the **MIT License**.
